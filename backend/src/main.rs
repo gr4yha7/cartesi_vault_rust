@@ -1,5 +1,5 @@
 use json::{object, JsonValue};
-use std::env;
+use std::{borrow::Borrow, env};
 
 pub async fn handle_advance(
     _client: &hyper::Client<hyper::client::HttpConnector>,
@@ -15,15 +15,28 @@ pub async fn handle_advance(
 }
 
 pub async fn handle_inspect(
-    _client: &hyper::Client<hyper::client::HttpConnector>,
-    _server_addr: &str,
+    client: &hyper::Client<hyper::client::HttpConnector>,
+    server_addr: &str,
     request: JsonValue,
 ) -> Result<&'static str, Box<dyn std::error::Error>> {
     println!("Received inspect request data {}", &request);
-    let _payload = request["data"]["payload"]
+    let payload = request["data"]["payload"]
         .as_str()
         .ok_or("Missing payload")?;
-    // TODO: add application logic here
+    let req_method = payload[2..].borrow();
+    match req_method {
+        "ether_deposit" => {
+            let notice_request = hyper::Request::builder()
+            .method(hyper::Method::POST)
+            .header(hyper::header::CONTENT_TYPE, "application/json")
+            .uri(format!("{}/notice", &server_addr))
+            .body(hyper::Body::from(payload))?;
+    
+            let response = client.request(notice_request).await?;
+            println!("Received notice status {}", response.status());
+        },
+        _ => unreachable!()
+    }
     Ok("accept")
 }
 
